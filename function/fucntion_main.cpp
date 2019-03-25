@@ -9,8 +9,8 @@
 #include	<opencv2\imgproc.hpp>
 #include	<opencv2\ml\ml.hpp>
 #include	<opencv2\opencv.hpp>
+#include	<opencv/ml.h>////针对 版本4.01一下的 opencv version==310
 #include	<time.h>
-
 using namespace cv;
 using namespace cv::ml;
 using namespace std;

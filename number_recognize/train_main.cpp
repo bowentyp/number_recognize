@@ -574,7 +574,7 @@ int main()
 	svm_->save("..\\svm.dat");
 
 	//Ptr<SVM> svm_ =  Algorithm::load<SVM>("svm.dat");	////opencv310	下load函数并没有在SVM里面
-	//Ptr<ml::SVM> svm_ = ml::SVM::load("svm.dat");	////opencv401	下load函数在SVM里面
+	////Ptr<ml::SVM> svm_ = ml::SVM::load("svm.dat");	////opencv401	下load函数在SVM里面
 
 
 	system("pause");

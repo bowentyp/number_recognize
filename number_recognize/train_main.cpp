@@ -9,7 +9,7 @@
 #include	<opencv2/imgproc.hpp>
 #include	<opencv2/ml/ml.hpp>
 #include	<opencv2/opencv.hpp>
-#include	<opencv/ml.h>////针对 版本4.01一下的 opencv version==310
+#include	<opencv/ml.h>////opencv version==310
 
 #include	<time.h>
 
@@ -65,9 +65,9 @@ void recall_for_draw(int event, int x, int y, int flags, void* userdata)
 		drawing_ = true;
 		ix1 = x; iy1 = y;
 	}
-	if (event == EVENT_MOUSEMOVE && flags == EVENT_FLAG_LBUTTON)
+	if (event == cv::EVENT_MOUSEMOVE)// && ( flags == EVENT_FLAG_LBUTTON))
 	{
-		if (drawing_)
+	 if (drawing_)
 		{
 			Mat img2 = img.clone();
 			rectangle(img2, Point(ix1, iy1),Point(x, y), Scalar(0, 255, 255), 1);
@@ -360,7 +360,7 @@ int main()
 
 	ofstream location_file;
 	location_file.open("location.txt", ios::out);
-	location_file << ix1 << "," << iy1 << "," << ix2 << "," << iy2 << endl;
+	location_file << ix1 << "," << iy1 << "," << ix2 << "," << iy2 << ",";
 
 	cap.release();
 
@@ -527,6 +527,7 @@ int main()
 		else if (recall_for_no)
 			break;
 	}
+	destroyAllWindows();
 	vector<Mat> chars_img;
 	if (key_choose_thresh)
 	{
@@ -538,7 +539,7 @@ int main()
 		chars_img = train_img;
 		SHOW_once("You choose Gray",500);
 	}
-	location_file << key_choose_thresh << endl;
+	location_file << key_choose_thresh ;
 	location_file.close();
 
 	Mat svm_image_data  ;
@@ -560,7 +561,7 @@ int main()
 		vconcat(svm_image_data, temp.reshape(0, 1), svm_image_data);
 	}
 
-	cout << "img.size():" << svm_image_data.size() << endl;
+//	cout << "img.size():" << svm_image_data.size() << endl;
 
 
 
@@ -578,9 +579,10 @@ int main()
 	svm_->train(svm_image_data, ROW_SAMPLE, svm_label_data);
 	svm_->save("svm.dat");
 
+	cout << "train Done" << endl;
 	//Ptr<SVM> svm_ =  Algorithm::load<SVM>("svm.dat");////opencv310 下load函数并没有在SVM里面
 
-	system("pause");
+//	system("pause");
 	return 0;
 
 	}

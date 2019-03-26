@@ -1,16 +1,16 @@
 #include	<iostream>
 #include	<assert.h>
 #include	<fstream>
-#include	<opencv2\core.hpp>
-#include	<opencv2\core\utility.hpp>
-#include	<opencv2\videoio.hpp>
-#include	<opencv2\video\video.hpp>
-#include	<opencv2\highgui.hpp>
-#include	<opencv2\imgproc.hpp>
-#include	<opencv2\ml\ml.hpp>
-#include	<opencv2\opencv.hpp>
-#include	<opencv/ml.h>////针对 版本4.01一下的 opencv version==310
-#include	<time.h>
+#include	<opencv2/core.hpp>
+#include	<opencv2/core/utility.hpp>
+#include	<opencv2/videoio.hpp>
+#include	<opencv2/video/video.hpp>
+#include	<opencv2/highgui.hpp>
+#include	<opencv2/imgproc.hpp>
+#include	<opencv2/ml/ml.hpp>
+#include	<opencv2/opencv.hpp>
+#include	<opencv/ml.h>////opencv version==310
+
 using namespace cv;
 using namespace cv::ml;
 using namespace std;
@@ -25,11 +25,20 @@ void recall(int event, int x, int y, int flags, void* userdata)
 	}
 }
 
+uint show_frame_flag=0;
+void recall_for_ready(int event, int x, int y, int flags, void* userdata)
+{
+	if (event == EVENT_LBUTTONDBLCLK)
+	{
+			show_frame_flag=1;
+	}
+}
+
 Rect readtxt(string file ,bool& thresh_flag)
 {
 	ifstream infile;
 	infile.open(file.data(),ios::in);
-	assert(infile.is_open()); 
+	assert(infile.is_open());
 
 	string s;
 	int x1=0, y1=0, w=0, h=0;
@@ -41,9 +50,10 @@ Rect readtxt(string file ,bool& thresh_flag)
 	w = atoi(s.c_str());
 	getline(infile, s, ',');
 	h = atoi(s.c_str());
-	getline(infile, s, ',');
+	getline(infile, s,',');
 	thresh_flag = atoi(s.c_str())!=0;
-	
+//	cout<<"x1="<<x1<<", y1="<<y1<<", w="<<w<<", h="<<h<<"\nthresh_flag:"<<thresh_flag<<endl;
+
 	if (w < x1)
 	{
 		int ss = w;
@@ -62,8 +72,8 @@ Rect readtxt(string file ,bool& thresh_flag)
 	else
 		h = h - y1;
 
-	Rect temp(x1, y1, w, h); 
-		
+	Rect temp(x1, y1, w, h);
+
 	infile.close();
 
 	return temp;
@@ -71,9 +81,9 @@ Rect readtxt(string file ,bool& thresh_flag)
 }
 
 
-Size	WinSize		=Size(50,50), 
-		BlockSize	=Size(20,20), 
-		BlockStride	=Size(10,10), 
+Size	WinSize		=Size(50,50),
+		BlockSize	=Size(20,20),
+		BlockStride	=Size(10,10),
 		CellSize	=Size(10,10);
 int		Nbins		=9;
 
@@ -81,7 +91,7 @@ auto hog = HOGDescriptor(WinSize   ,
 						BlockSize	,
 						BlockStride	,
 						CellSize	,
-						Nbins);	
+						Nbins);
 
 void MovingAverage(Mat &A, int N)
 {
@@ -98,13 +108,13 @@ void MovingAverage(Mat &A, int N)
 	}
 	else
 	{
-		for (int a = 0; a < sizenum - N; a++) 
-			A.at<float>(a, 0) = sum(A.rowRange(a, a + N))[0] / N; 
+		for (int a = 0; a < sizenum - N; a++)
+			A.at<float>(a, 0) = sum(A.rowRange(a, a + N))[0] / N;
 		for (int a = sizenum - N; a <sizenum; a++)
 			A.at<float>(a, 0) = 0;
 
 		vconcat(Mat::zeros(Size(1, 1), CV_32FC1), A, A);
-		 
+
 	}
 }
 
@@ -123,56 +133,61 @@ vector<int> find_wavetop(Mat A)
 
 	return store_int;
 }
- 
+
+
 int main()
 {
-	clock_t start, end;
-	start = clock();
+//	clock_t start, end;
+//	start = clock();
+//	int framecnt = 0;
 	bool thresh_flag;
-	Rect ROI=readtxt("C:\\Users\\typ97\\Desktop\\data\\final\\location.txt", thresh_flag);
+	Rect ROI=readtxt("location.txt", thresh_flag);
+
 	cout << ROI << endl;
 	VideoCapture video ;
 	video.open(0);
 	if (!video.isOpened())
 	{
 		cout << "cant open video" << endl;
-	
-		system("pause");
+
+//		system("pause");
 		return -1;
 	}
-	
+
 	namedWindow("record");
 	setMouseCallback("record",recall );
-	
+
 	Mat choice_label=Mat::zeros(Size(50,25),CV_8UC3);
 	rectangle(choice_label, Rect(0, 0, 49, 24), Scalar(0, 255, 255));
 	putText(choice_label, "QUIT", Point(2, 18), FONT_HERSHEY_COMPLEX, 0.6, Scalar(0, 255, 255), 2);
-		
+
 	imshow("record", choice_label);
-	
-	Ptr<ml::SVM> svm_ = ml::SVM::load("C:\\Users\\typ97\\Desktop\\data\\final\\svm.dat");
-	
-	
+
+	Ptr<ml::SVM> svm_ = ml::SVM::load("svm.dat");
+
+
 	Mat frame,predict,B,G,R,histormB,histormG,histormR;
-	vector<float>  result_hog;	 
+	vector<float>  result_hog;
 	vector<Mat> channel;
 	int hisnum = 255;
 	const float range[] = { 0,255 };
 	const float* histRange = { range };
-	int framecnt = 0;
+
+    namedWindow("frame");
+	setMouseCallback("frame",recall_for_ready );
 
 	while (true)
-	{														
-		video >> frame;										
-		assert(!frame.empty());								
-		Mat img = frame(ROI);
+	{
+		video >> frame;
+		assert(!frame.empty());
+		Mat img = frame(ROI).clone();
 		if (thresh_flag) {
 			split(img.clone(), channel);
-	
+
 			B = channel.at(0);
 			G = channel.at(1);
 			R = channel.at(2);
-	
+
 			calcHist(&B, 1, 0, Mat(), histormB, 1, &hisnum, &histRange, true, false);
 			calcHist(&G, 1, 0, Mat(), histormG, 1, &hisnum, &histRange, true, false);
 			calcHist(&R, 1, 0, Mat(), histormR, 1, &hisnum, &histRange, true, false);
@@ -184,11 +199,11 @@ int main()
 			vector<int> wavetopB=find_wavetop(histormB);
 			vector<int> wavetopG=find_wavetop(histormG);
 			vector<int> wavetopR=find_wavetop(histormR);
-			
+
 			int B_diff = *(wavetopB.cend() - 1) - *(wavetopB.cbegin()+1);
 			int G_diff = *(wavetopG.cend() - 1) - *(wavetopG.cbegin()+1);
 			int R_diff = *(wavetopR.cend() - 1) - *(wavetopR.cbegin()+1);
-			 
+
 			bool flag=false;
 
 			if (B_diff > 150 && (G_diff > 150 || R_diff > 150))
@@ -201,7 +216,7 @@ int main()
 			if (!flag)
 			{
 				int max_value = max(max(B_diff, G_diff), R_diff);
-				cout << max_value;
+				//cout << max_value;
 				if (B_diff == max_value)
 				{
 					img_thresh = B;
@@ -228,34 +243,46 @@ int main()
 		}
 		else {
 			cvtColor(img, img, COLOR_BGR2GRAY);
-			imshow("record", choice_label);
+			imshow("img",img);
 			cv::resize(img, img, Size(50, 50));
-	
-			hog.compute(img, result_hog); 
+
+			hog.compute(img, result_hog);
 			cout << "test:" << svm_->predict(Mat(result_hog, CV_32FC1).reshape(0, 1)) << endl;
-	
-			
-	
+
+
+
 		}
-		imshow("img", frame);
-		if (waitKey(1)==27)  ;
+
+		if (show_frame_flag==0)
+		{
+            rectangle(frame,ROI,Scalar(0,255,0),3);
+            imshow("frame", frame);
+		}
+		else if (show_frame_flag==1)
+		{
+            show_frame_flag=2;
+            destroyWindow("frame");
+        }
+        if (waitKey(1)==uint8_t('s'))
+            show_frame_flag=0;
 
 
-		framecnt++;
+
+//		framecnt++;
 		if (break_)
 		{
 			destroyAllWindows();
 			break;
 		}
 
-	}	
+	}
 
-	end = clock();
-	cout << "Time consume：" << double(end - start) / CLOCKS_PER_SEC;
-	cout << "Framecnt:"<<framecnt << endl;
+//	end = clock();
+//	cout << "Time consume：" << double(end - start) / CLOCKS_PER_SEC;
+//	cout << "Framecnt:"<<framecnt << endl;
 
-	video.release(); 
-	system("pause");
+	video.release();
+//	system("pause");
 	return 0;
-		
+
 	}

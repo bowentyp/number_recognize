@@ -9,7 +9,7 @@
 #include	<opencv2/imgproc.hpp>
 #include	<opencv2/ml/ml.hpp>
 #include	<opencv2/opencv.hpp>
-#include	<opencv/ml.h>////opencv version==310
+//#include	<opencv/ml.h>////opencv version==310
 
 #include	<time.h>
 
@@ -29,11 +29,11 @@ void recall_for_quit(int event, int x, int y, int flags, void* userdata)
 
 void  Key_quit_waitkey(int waittime)
 {
-    if (waitKey(waittime)==27)
-        exit(0);
+	if (waitKey(waittime) == 27)
+		exit(0);
 }
 
-bool recall_for_back=false, recall_for_next = false, recall_for_esc = false, recall_for_no= false, recall_for_ok = false;
+bool recall_for_back = false, recall_for_next = false, recall_for_esc = false, recall_for_no = false, recall_for_ok = false;
 void recall_for_setup(int event, int x, int y, int flags, void* userdata)
 {
 	if (event == EVENT_LBUTTONUP)
@@ -55,7 +55,7 @@ void recall_for_setup(int event, int x, int y, int flags, void* userdata)
 }
 
 Mat img;
-int ix1 = -1, iy1 = -1, ix2 = -1, iy2 = -1 ;
+int ix1 = -1, iy1 = -1, ix2 = -1, iy2 = -1;
 bool drawing_ = false;
 void recall_for_draw(int event, int x, int y, int flags, void* userdata)
 {
@@ -67,10 +67,10 @@ void recall_for_draw(int event, int x, int y, int flags, void* userdata)
 	}
 	if (event == cv::EVENT_MOUSEMOVE)// && ( flags == EVENT_FLAG_LBUTTON))
 	{
-	 if (drawing_)
+		if (drawing_)
 		{
 			Mat img2 = img.clone();
-			rectangle(img2, Point(ix1, iy1),Point(x, y), Scalar(0, 255, 255), 1);
+			rectangle(img2, Point(ix1, iy1), Point(x, y), Scalar(0, 255, 255), 1);
 			imshow("img", img2);
 		}
 	}
@@ -82,14 +82,14 @@ void recall_for_draw(int event, int x, int y, int flags, void* userdata)
 	}
 }
 
-Rect readtxt(string file ,bool& thresh_flag)
+Rect readtxt(string file, bool& thresh_flag)
 {
 	ifstream infile;
-	infile.open(file.data(),ios::in);
+	infile.open(file.data(), ios::in);
 	assert(infile.is_open());
 
 	string s;
-	int x1=0, y1=0, w=0, h=0;
+	int x1 = 0, y1 = 0, w = 0, h = 0;
 	getline(infile, s, ',');
 	x1 = atoi(s.c_str());
 	getline(infile, s, ',');
@@ -99,13 +99,13 @@ Rect readtxt(string file ,bool& thresh_flag)
 	getline(infile, s, ',');
 	h = atoi(s.c_str());
 	getline(infile, s, ',');
-	thresh_flag = atoi(s.c_str())!=0;
+	thresh_flag = atoi(s.c_str()) != 0;
 
 	if (w < x1)
 	{
 		int ss = w;
-			w = x1 - w;
-			x1 = ss;
+		w = x1 - w;
+		x1 = ss;
 	}
 	else
 		w = w - x1;
@@ -113,8 +113,8 @@ Rect readtxt(string file ,bool& thresh_flag)
 	if (h < y1)
 	{
 		int ss = h;
-			h = y1 - h;
-			y1 = ss;
+		h = y1 - h;
+		y1 = ss;
 	}
 	else
 		h = h - y1;
@@ -128,17 +128,17 @@ Rect readtxt(string file ,bool& thresh_flag)
 }
 
 
-Size	WinSize		=Size(50,50),
-		BlockSize	=Size(20,20),
-		BlockStride	=Size(10,10),
-		CellSize	=Size(10,10);
-int		Nbins		=9;
+Size	WinSize = Size(50, 50),
+BlockSize = Size(20, 20),
+BlockStride = Size(10, 10),
+CellSize = Size(10, 10);
+int		Nbins = 9;
 
-HOGDescriptor hog(WinSize,BlockSize,BlockStride,CellSize,Nbins);
+HOGDescriptor hog(WinSize, BlockSize, BlockStride, CellSize, Nbins);
 
 void MovingAverage(Mat &A, int N)
 {
-	assert((A.size[0] == 1) ^( A.size[1] == 1));
+	assert((A.size[0] == 1) ^ (A.size[1] == 1));
 	int sizenum = (A.size[0] == 1) ? A.size[1] : A.size[0];
 	if (A.size[0] == 1)
 	{
@@ -163,10 +163,10 @@ void MovingAverage(Mat &A, int N)
 
 vector<int> find_wavetop(Mat A)
 {
-	vector<int > store_int = {0};
+	vector<int > store_int = { 0 };
 	int sizenum = (A.size[0] <A.size[1]) ? A.size[1] : A.size[0];
 	int num = 0;
-	for (int a = 0; a < sizenum-1; a++)
+	for (int a = 0; a < sizenum - 1; a++)
 	{
 		if (A.at<float>(a) < A.at<float>(a + 1))
 			num = a;
@@ -194,7 +194,7 @@ Mat choice_for_setup()
 	return choice_label;
 }
 
-Mat SHOW_Label(Mat choice_label, string s1,bool lines=false )
+Mat SHOW_Label(Mat choice_label, string s1, bool lines = false)
 {
 	Mat temp;
 	Mat SHOW_Label1 = Mat::zeros(Size(500, 40), CV_8UC3);
@@ -227,9 +227,9 @@ int main()
 
 	//////以下是录制视频的代码
 
-	Mat choice_label_show= SHOW_Label( SHOW_Label(choice_label,
-								"When camera ready,clik OK",true),
-								"to record ; ESC to quit");
+	Mat choice_label_show = SHOW_Label(SHOW_Label(choice_label,
+		"When camera ready,clik OK", true),
+		"to record ; ESC to quit");
 
 	namedWindow("recall_for_setup");
 	setMouseCallback("recall_for_setup", recall_for_setup);
@@ -239,7 +239,7 @@ int main()
 	cap.set(CAP_PROP_AUTO_EXPOSURE, 1);
 	int fourcc = VideoWriter::fourcc('M', 'P', '4', '2');
 	auto video_writor = VideoWriter("train.avi", fourcc, 10,
-		Size(cap.get(CAP_PROP_FRAME_WIDTH), cap.get(CAP_PROP_FRAME_HEIGHT)),true);
+		Size(cap.get(CAP_PROP_FRAME_WIDTH), cap.get(CAP_PROP_FRAME_HEIGHT)), true);
 
 	Mat frame;
 	int cnt_record = 0;
@@ -249,15 +249,15 @@ int main()
 		assert(!frame.empty());
 		imshow("frame", frame);
 
-        Key_quit_waitkey(500);
+		Key_quit_waitkey(500);
 		if (recall_for_ok)
 		{
 			video_writor.write(frame);
 			cnt_record++;
-			choice_label_show=SHOW_Label( SHOW_Label( SHOW_Label(choice_label,
-								"When camera ready,clik OK",true),
-								"to record ; ESC to quit"),
-								"record "+to_string(cnt_record)+" pics");
+			choice_label_show = SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
+				"When camera ready,clik OK", true),
+				"to record ; ESC to quit"),
+				"record " + to_string(cnt_record) + " pics");
 			imshow("recall_for_setup", choice_label_show);
 			cout << "frame record:" << cnt_record << " pics" << endl;
 
@@ -277,8 +277,8 @@ int main()
 	cap.release();
 	cap.open("train.avi");
 	choice_label_show = SHOW_Label(SHOW_Label(choice_label,
-						"Draw fixed ROI Firstly", true),
-						"Then adjust label(BACK/NEXT)");
+		"Draw fixed ROI Firstly", true),
+		"Then adjust label(BACK/NEXT)");
 
 	vector<Mat> train_img;
 	vector<int> chars_label;
@@ -306,7 +306,7 @@ int main()
 			{
 				if (ix1 == -1 || iy1 == -1 || ix2 == -1 || iy2 == -1)
 				{
-					SHOW_once("Draw ROI firstly" , 1000);
+					SHOW_once("Draw ROI firstly", 1000);
 					continue;
 				}
 				train_img.push_back(frame(Rect(Point(ix1, iy1), Point(ix2, iy2))).clone());
@@ -319,17 +319,17 @@ int main()
 			{
 				label_cnt--;
 				imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
-								"Add to train(OK/NO),Quit(ESC)", true),
-								"Change label(BACK/NEXT)"),
-								"NOW label is: " + to_string(label_cnt)));
+					"Add to train(OK/NO),Quit(ESC)", true),
+					"Change label(BACK/NEXT)"),
+					"NOW label is: " + to_string(label_cnt)));
 			}
 			if (recall_for_next)
 			{
-				 label_cnt++;
-				 imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
-								 "Add to train(OK/NO),Quit(ESC)", true),
-								 "Change label(BACK/NEXT)"),
-								  "NOW label is: "+to_string(label_cnt)));
+				label_cnt++;
+				imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
+					"Add to train(OK/NO),Quit(ESC)", true),
+					"Change label(BACK/NEXT)"),
+					"NOW label is: " + to_string(label_cnt)));
 			}
 			if (recall_for_no)
 			{
@@ -436,9 +436,9 @@ int main()
 
 	//////做一些删减
 	choice_label_show = SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
-									"Delete this image(OK)", true),
-									"Not delete(NEXT)"),
-									"NOW label is:" + to_string(chars_label[0]));
+		"Delete this image(OK)", true),
+		"Not delete(NEXT)"),
+		"NOW label is:" + to_string(chars_label[0]));
 	imshow("recall_for_setup", choice_label_show);
 	for (int num_record1 = 0; num_record1 < train_img.size(); num_record1++)
 	{
@@ -448,7 +448,7 @@ int main()
 		while (true)
 		{
 			recall_for_ok = false;
-			recall_for_next= false;
+			recall_for_next = false;
 			recall_for_back = false;
 
 			Key_quit_waitkey(50);//can't lose this sentense
@@ -474,18 +474,18 @@ int main()
 			}
 			if (recall_for_back)
 			{
-				if (num_record1==0)
+				if (num_record1 == 0)
 				{
-					SHOW_once("NO images",500);
+					SHOW_once("NO images", 500);
 					continue;
 				}
 				num_record1--;
 				imshow("img_thresh", train_thresh[num_record1]);
 				imshow("train_img", train_img[num_record1]);
 				choice_label_show = SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
-									"Delete this image(OK)", true),
-									"Not delete(NEXT)"),
-									"NOW label is:" + to_string(chars_label[num_record1]));
+					"Delete this image(OK)", true),
+					"Not delete(NEXT)"),
+					"NOW label is:" + to_string(chars_label[num_record1]));
 				imshow("recall_for_setup", choice_label_show);
 				recall_for_back = false;
 				waitKey(50);
@@ -496,7 +496,7 @@ int main()
 				choice_label_show = SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
 					"Delete this image(OK)", true),
 					"Not delete(NEXT)"),
-					"NOW label is:" + to_string(chars_label[num_record1+1]));
+					"NOW label is:" + to_string(chars_label[num_record1 + 1]));
 				imshow("recall_for_setup", choice_label_show);
 				break;
 			}
@@ -508,9 +508,9 @@ int main()
 
 	bool key_choose_thresh = false;
 
-	choice_label_show = SHOW_Label( SHOW_Label(choice_label,
-								"Use Binarization image to ", true),
-								"make model file?(OK/NO)");
+	choice_label_show = SHOW_Label(SHOW_Label(choice_label,
+		"Use Binarization image to ", true),
+		"make model file?(OK/NO)");
 
 	imshow("recall_for_setup", choice_label_show);
 
@@ -532,19 +532,19 @@ int main()
 	if (key_choose_thresh)
 	{
 		chars_img = train_thresh;
-		SHOW_once("You choose Thresh",500);
+		SHOW_once("You choose Thresh", 500);
 	}
 	else
 	{
 		chars_img = train_img;
-		SHOW_once("You choose Gray",500);
+		SHOW_once("You choose Gray", 500);
 	}
-	location_file << key_choose_thresh ;
+	location_file << key_choose_thresh;
 	location_file.close();
 
-	Mat svm_image_data  ;
+	Mat svm_image_data;
 	Mat svm_label_data = Mat(chars_label);
-	cout << svm_label_data << ";\n"<< svm_label_data.size()<< endl;
+	cout << svm_label_data << ";\n" << svm_label_data.size() << endl;
 
 	vector<float> result_hog;
 
@@ -552,7 +552,7 @@ int main()
 	hog.compute(img, result_hog);
 	transpose(Mat(result_hog, CV_32FC1), svm_image_data);
 
-	for (int img_cnt = 1; img_cnt<chars_img.size();img_cnt++)
+	for (int img_cnt = 1; img_cnt<chars_img.size(); img_cnt++)
 	{
 		Mat temp;
 		resize(chars_img[img_cnt], img, Size(50, 50));
@@ -561,7 +561,7 @@ int main()
 		vconcat(svm_image_data, temp.reshape(0, 1), svm_image_data);
 	}
 
-//	cout << "img.size():" << svm_image_data.size() << endl;
+	//	cout << "img.size():" << svm_image_data.size() << endl;
 
 
 
@@ -582,7 +582,7 @@ int main()
 	cout << "train Done" << endl;
 	//Ptr<SVM> svm_ =  Algorithm::load<SVM>("svm.dat");////opencv310 下load函数并没有在SVM里面
 
-//	system("pause");
+	//	system("pause");
 	return 0;
 
-	}
+}

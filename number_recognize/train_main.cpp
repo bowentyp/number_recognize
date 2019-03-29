@@ -17,115 +17,7 @@ using namespace cv;
 using namespace cv::ml;
 using namespace std;
 
-bool break_ = false;
-void recall_for_quit(int event, int x, int y, int flags, void* userdata)
-{
-	if (event == EVENT_LBUTTONUP)
-	{
-		if (y > 5 && y < 58 && x>5 && x < 95)
-			break_ = true;
-	}
-}
 
-void  Key_quit_waitkey(int waittime)
-{
-	if (waitKey(waittime) == 27)
-		exit(0);
-}
-
-bool recall_for_back = false, recall_for_next = false, recall_for_esc = false, recall_for_no = false, recall_for_ok = false;
-void recall_for_setup(int event, int x, int y, int flags, void* userdata)
-{
-	if (event == EVENT_LBUTTONUP)
-	{
-		if (y > 5 && y < 58)
-		{
-			if (x > 5 && x < 95)
-				recall_for_back = true;
-			else	if (x > 105 && x < 195)
-				recall_for_next = true;
-			else	if (x > 205 && x < 295)
-				recall_for_ok = true;
-			else	if (x > 305 && x < 395)
-				recall_for_no = true;
-			else	if (x > 405 && x < 495)
-				recall_for_esc = true;
-		}
-	}
-}
-
-Mat img;
-int ix1 = -1, iy1 = -1, ix2 = -1, iy2 = -1;
-bool drawing_ = false;
-void recall_for_draw(int event, int x, int y, int flags, void* userdata)
-{
-	//当按下左键时返回起始位置坐标
-	if (event == EVENT_LBUTTONDOWN)
-	{
-		drawing_ = true;
-		ix1 = x; iy1 = y;
-	}
-	if (event == cv::EVENT_MOUSEMOVE)// && ( flags == EVENT_FLAG_LBUTTON))
-	{
-		if (drawing_)
-		{
-			Mat img2 = img.clone();
-			rectangle(img2, Point(ix1, iy1), Point(x, y), Scalar(0, 255, 255), 1);
-			imshow("img", img2);
-		}
-	}
-	//当鼠标松开时停止绘图
-	if (event == EVENT_LBUTTONUP)
-	{
-		drawing_ = false;
-		ix2 = x; iy2 = y;
-	}
-}
-
-Rect readtxt(string file, bool& thresh_flag)
-{
-	ifstream infile;
-	infile.open(file.data(), ios::in);
-	assert(infile.is_open());
-
-	string s;
-	int x1 = 0, y1 = 0, w = 0, h = 0;
-	getline(infile, s, ',');
-	x1 = atoi(s.c_str());
-	getline(infile, s, ',');
-	y1 = atoi(s.c_str());
-	getline(infile, s, ',');
-	w = atoi(s.c_str());
-	getline(infile, s, ',');
-	h = atoi(s.c_str());
-	getline(infile, s, ',');
-	thresh_flag = atoi(s.c_str()) != 0;
-
-	if (w < x1)
-	{
-		int ss = w;
-		w = x1 - w;
-		x1 = ss;
-	}
-	else
-		w = w - x1;
-
-	if (h < y1)
-	{
-		int ss = h;
-		h = y1 - h;
-		y1 = ss;
-	}
-	else
-		h = h - y1;
-
-	Rect temp(x1, y1, w, h);
-
-	infile.close();
-
-	return temp;
-
-}
 
 
 Size	WinSize = Size(50, 50),
@@ -133,93 +25,22 @@ BlockSize = Size(20, 20),
 BlockStride = Size(10, 10),
 CellSize = Size(10, 10);
 int		Nbins = 9;
-
 HOGDescriptor hog(WinSize, BlockSize, BlockStride, CellSize, Nbins);
 
-void MovingAverage(Mat &A, int N)
-{
-	assert((A.size[0] == 1) ^ (A.size[1] == 1));
-	int sizenum = (A.size[0] == 1) ? A.size[1] : A.size[0];
-	if (A.size[0] == 1)
-	{
-		for (int a = 0; a < sizenum - N; a++)
-			A.at<float>(0, a) = sum(A.colRange(a, a + N))[0] / N;
-		for (int a = sizenum - N; a < sizenum; a++)
-			A.at<float>(0, a) = 0;
+Mat img;
+int ix1 = -1, iy1 = -1, ix2 = -1, iy2 = -1;
+bool drawing_ = false;
+bool recall_for_back = false, recall_for_next = false, recall_for_esc = false, recall_for_no = false, recall_for_ok = false;
 
-		hconcat(Mat::zeros(Size(1, 1), CV_32FC1), A, A);
-	}
-	else
-	{
-		for (int a = 0; a < sizenum - N; a++)
-			A.at<float>(a, 0) = sum(A.rowRange(a, a + N))[0] / N;
-		for (int a = sizenum - N; a <sizenum; a++)
-			A.at<float>(a, 0) = 0;
-
-		vconcat(Mat::zeros(Size(1, 1), CV_32FC1), A, A);
-
-	}
-}
-
-vector<int> find_wavetop(Mat A)
-{
-	vector<int > store_int = { 0 };
-	int sizenum = (A.size[0] <A.size[1]) ? A.size[1] : A.size[0];
-	int num = 0;
-	for (int a = 0; a < sizenum - 1; a++)
-	{
-		if (A.at<float>(a) < A.at<float>(a + 1))
-			num = a;
-		if (A.at<float>(a) > A.at<float>(a + 1) && num != *(store_int.cend() - 1))
-			store_int.push_back(num);
-	}
-
-	return store_int;
-}
-
-Mat choice_for_setup()
-{
-	Mat choice_label = Mat::zeros(Size(500, 60), CV_8UC3);
-	rectangle(choice_label, Rect(5, 5, 90, 53), Scalar(0, 255, 255), 2);
-	rectangle(choice_label, Rect(105, 5, 90, 53), Scalar(0, 255, 255), 2);
-	rectangle(choice_label, Rect(205, 5, 90, 53), Scalar(0, 255, 255), 2);
-	rectangle(choice_label, Rect(305, 5, 90, 53), Scalar(0, 255, 255), 2);
-	rectangle(choice_label, Rect(405, 5, 90, 53), Scalar(0, 255, 255), 2);
-	putText(choice_label, "BACK", Point(8, 40), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 255), 2);
-	putText(choice_label, "NEXT", Point(108, 40), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 255), 2);
-	putText(choice_label, "OK", Point(230, 40), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 255), 2);
-	putText(choice_label, "NO", Point(330, 40), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 255), 2);
-	putText(choice_label, "ESC", Point(420, 40), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 255), 2);
-
-	return choice_label;
-}
-
-Mat SHOW_Label(Mat choice_label, string s1, bool lines = false)
-{
-	Mat temp;
-	Mat SHOW_Label1 = Mat::zeros(Size(500, 40), CV_8UC3);
-	if (lines)
-		line(SHOW_Label1, Point(0, 5), Point(500, 5), Scalar(0, 255, 0), 3);
-	putText(SHOW_Label1, s1, Point(5, 30), FONT_HERSHEY_COMPLEX, 0.95, Scalar(0, 255, 0), 2);
-	vconcat(choice_label, SHOW_Label1, temp);
-	return temp;
-}
-
-Mat SHOW_once(string s1, int overtime = 0, Mat A = Mat())
-{
-	Mat temp = Mat::zeros(Size(500, 40), CV_8UC3);
-	putText(temp, s1, Point(5, 30), FONT_HERSHEY_COMPLEX, 0.95, Scalar(0, 255, 0), 2);
-	if (A.size() != Size(0, 0))
-		vconcat(temp, A, temp);
-
-	if (overtime)
-	{
-		imshow("show", temp);
-		waitKey(overtime);
-		destroyWindow("show");
-	}
-	return temp;
-}
+void  Key_quit_waitkey(int waittime);
+void recall_for_setup(int event, int x, int y, int flags, void* userdata);
+void recall_for_draw(int event, int x, int y, int flags, void* userdata);
+Rect readtxt(string file, bool& thresh_flag);
+void MovingAverage(Mat &A, int N);
+vector<int> find_wavetop(Mat A);
+Mat choice_for_setup();
+Mat SHOW_Label(Mat choice_label, string s1, bool lines = false);
+Mat SHOW_once(string s1, int overtime = 0, Mat A = Mat());
 
 int main()
 {
@@ -236,11 +57,11 @@ int main()
 	imshow("recall_for_setup", choice_label_show);
 
 	VideoCapture cap(0);
-	cap.set(CAP_PROP_AUTO_EXPOSURE, 1);
+	//cap.set(CAP_PROP_AUTO_EXPOSURE, 1);
 	int fourcc = VideoWriter::fourcc('M', 'P', '4', '2');
 	auto video_writor = VideoWriter("train.avi", fourcc, 10,
 		Size(cap.get(CAP_PROP_FRAME_WIDTH), cap.get(CAP_PROP_FRAME_HEIGHT)), true);
-
+	
 	Mat frame;
 	int cnt_record = 0;
 	while (true)
@@ -248,7 +69,6 @@ int main()
 		cap >> frame;
 		assert(!frame.empty());
 		imshow("frame", frame);
-
 		Key_quit_waitkey(500);
 		if (recall_for_ok)
 		{
@@ -562,8 +382,7 @@ int main()
 	}
 
 	//	cout << "img.size():" << svm_image_data.size() << endl;
-
-
+	 
 
 	//////训练开始
 	cout << "begin training" << endl;
@@ -586,3 +405,185 @@ int main()
 	return 0;
 
 }
+
+void  Key_quit_waitkey(int waittime)
+{
+	if (waitKey(waittime) == 27)
+		exit(0);
+}
+
+void recall_for_setup(int event, int x, int y, int flags, void* userdata)
+{
+	if (event == EVENT_LBUTTONUP)
+	{
+		if (y > 5 && y < 58)
+		{
+			if (x > 5 && x < 95)
+				recall_for_back = true;
+			else	if (x > 105 && x < 195)
+				recall_for_next = true;
+			else	if (x > 205 && x < 295)
+				recall_for_ok = true;
+			else	if (x > 305 && x < 395)
+				recall_for_no = true;
+			else	if (x > 405 && x < 495)
+				recall_for_esc = true;
+		}
+	}
+}
+
+void recall_for_draw(int event, int x, int y, int flags, void* userdata)
+{
+	//当按下左键时返回起始位置坐标
+	if (event == EVENT_LBUTTONDOWN)
+	{
+		drawing_ = true;
+		ix1 = x; iy1 = y;
+	}
+	if (event == cv::EVENT_MOUSEMOVE)// && ( flags == EVENT_FLAG_LBUTTON))
+	{
+		if (drawing_)
+		{
+			Mat img2 = img.clone();
+			rectangle(img2, Point(ix1, iy1), Point(x, y), Scalar(0, 255, 255), 1);
+			imshow("img", img2);
+		}
+	}
+	//当鼠标松开时停止绘图
+	if (event == EVENT_LBUTTONUP)
+	{
+		drawing_ = false;
+		ix2 = x; iy2 = y;
+	}
+}
+
+Rect readtxt(string file, bool& thresh_flag)
+{
+	ifstream infile;
+	infile.open(file.data(), ios::in);
+	assert(infile.is_open());
+
+	string s;
+	int x1 = 0, y1 = 0, w = 0, h = 0;
+	getline(infile, s, ',');
+	x1 = atoi(s.c_str());
+	getline(infile, s, ',');
+	y1 = atoi(s.c_str());
+	getline(infile, s, ',');
+	w = atoi(s.c_str());
+	getline(infile, s, ',');
+	h = atoi(s.c_str());
+	getline(infile, s, ',');
+	thresh_flag = atoi(s.c_str()) != 0;
+
+	if (w < x1)
+	{
+		int ss = w;
+		w = x1 - w;
+		x1 = ss;
+	}
+	else
+		w = w - x1;
+
+	if (h < y1)
+	{
+		int ss = h;
+		h = y1 - h;
+		y1 = ss;
+	}
+	else
+		h = h - y1;
+
+	Rect temp(x1, y1, w, h);
+
+	infile.close();
+
+	return temp;
+
+}
+
+void MovingAverage(Mat &A, int N)
+{
+	assert((A.size[0] == 1) ^ (A.size[1] == 1));
+	int sizenum = (A.size[0] == 1) ? A.size[1] : A.size[0];
+	if (A.size[0] == 1)
+	{
+		for (int a = 0; a < sizenum - N; a++)
+			A.at<float>(0, a) = sum(A.colRange(a, a + N))[0] / N;
+		for (int a = sizenum - N; a < sizenum; a++)
+			A.at<float>(0, a) = 0;
+
+		hconcat(Mat::zeros(Size(1, 1), CV_32FC1), A, A);
+	}
+	else
+	{
+		for (int a = 0; a < sizenum - N; a++)
+			A.at<float>(a, 0) = sum(A.rowRange(a, a + N))[0] / N;
+		for (int a = sizenum - N; a <sizenum; a++)
+			A.at<float>(a, 0) = 0;
+
+		vconcat(Mat::zeros(Size(1, 1), CV_32FC1), A, A);
+
+	}
+}
+
+vector<int> find_wavetop(Mat A)
+{
+	vector<int > store_int = { 0 };
+	int sizenum = (A.size[0] <A.size[1]) ? A.size[1] : A.size[0];
+	int num = 0;
+	for (int a = 0; a < sizenum - 1; a++)
+	{
+		if (A.at<float>(a) < A.at<float>(a + 1))
+			num = a;
+		if (A.at<float>(a) > A.at<float>(a + 1) && num != *(store_int.cend() - 1))
+			store_int.push_back(num);
+	}
+
+	return store_int;
+}
+
+Mat choice_for_setup()
+{
+	Mat choice_label = Mat::zeros(Size(500, 60), CV_8UC3);
+	rectangle(choice_label, Rect(5, 5, 90, 53), Scalar(0, 255, 255), 2);
+	rectangle(choice_label, Rect(105, 5, 90, 53), Scalar(0, 255, 255), 2);
+	rectangle(choice_label, Rect(205, 5, 90, 53), Scalar(0, 255, 255), 2);
+	rectangle(choice_label, Rect(305, 5, 90, 53), Scalar(0, 255, 255), 2);
+	rectangle(choice_label, Rect(405, 5, 90, 53), Scalar(0, 255, 255), 2);
+	putText(choice_label, "BACK", Point(8, 40), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 255), 2);
+	putText(choice_label, "NEXT", Point(108, 40), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 255), 2);
+	putText(choice_label, "OK", Point(230, 40), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 255), 2);
+	putText(choice_label, "NO", Point(330, 40), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 255), 2);
+	putText(choice_label, "ESC", Point(420, 40), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 255), 2);
+
+	return choice_label;
+}
+
+Mat SHOW_Label(Mat choice_label, string s1, bool lines  )
+{
+	Mat temp;
+	Mat SHOW_Label1 = Mat::zeros(Size(500, 40), CV_8UC3);
+	if (lines)
+		line(SHOW_Label1, Point(0, 5), Point(500, 5), Scalar(0, 255, 0), 3);
+	putText(SHOW_Label1, s1, Point(5, 30), FONT_HERSHEY_COMPLEX, 0.95, Scalar(0, 255, 0), 2);
+	vconcat(choice_label, SHOW_Label1, temp);
+	return temp;
+}
+
+Mat SHOW_once(string s1, int overtime  , Mat A )
+{
+	Mat temp = Mat::zeros(Size(500, 40), CV_8UC3);
+	putText(temp, s1, Point(5, 30), FONT_HERSHEY_COMPLEX, 0.95, Scalar(0, 255, 0), 2);
+	if (A.size() != Size(0, 0))
+		vconcat(temp, A, temp);
+
+	if (overtime)
+	{
+		imshow("show", temp);
+		waitKey(overtime);
+		destroyWindow("show");
+	}
+	return temp;
+}
+

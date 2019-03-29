@@ -14,23 +14,189 @@
 using namespace cv;
 using namespace cv::ml;
 using namespace std;
+const int DISSAPPEAR_TIME_LIMIT = 200;
+Size	WinSize = Size(50, 50),
+BlockSize = Size(20, 20),
+BlockStride = Size(10, 10),
+CellSize = Size(10, 10);
+int		Nbins = 9;
+
+auto hog = HOGDescriptor(WinSize,
+	BlockSize,
+	BlockStride,
+	CellSize,
+	Nbins);
+ 
+Mat SHOW_Label(Mat choice_label, string s1,int length = 560);
+void recall_for_ready(int event, int x, int y, int flags, void* userdata);
+Rect readtxt(string file, bool& thresh_flag);
+void MovingAverage(Mat &A, int N);
+vector<int> find_wavetop(Mat A);
 
 bool break_ = false;
-void recall(int event, int x, int y, int flags, void* userdata)
-{
-	if (event == EVENT_LBUTTONUP)
-	{
-		if (y > 1 && y < 40 && x>1 && x < 80)
-			break_ = true;
-	}
-}
-
 uint show_frame_flag = 0;
+int dissappear_time = 0;
+
+int main()
+{
+	//	clock_t start, end;
+	//	start = clock();
+	//	int framecnt = 0;
+	bool thresh_flag;
+	Rect ROI = readtxt("location.txt", thresh_flag);
+
+	cout << ROI << endl;
+	VideoCapture video;
+	video.open(0);
+	if (!video.isOpened())
+	{
+		cout << "cant open video" << endl; 
+		return -1;
+	}
+	 
+
+
+	Mat choice_label = Mat::zeros(Size(80, 40), CV_8UC3),show1_label;
+	rectangle(choice_label, Rect(1, 1, 79, 39), Scalar(0, 255, 255),2);
+	putText(choice_label, "QUIT", Point(5, 30), FONT_HERSHEY_COMPLEX, 0.95, Scalar(0, 255, 255), 2);
+	
+	 
+	Ptr<ml::SVM> svm_ = ml::SVM::load("svm.dat"); 
+
+	Mat frame, predict, B, G, R, histormB, histormG, histormR;
+	vector<float>  result_hog;
+	vector<Mat> channel;
+	int hisnum = 255;
+	const float range[] = { 0,255 };
+	const float* histRange = { range };
+
+	namedWindow("frame");
+	setMouseCallback("frame", recall_for_ready);
+	int predict_typ;
+	 
+	while (true)
+	{
+		video >> frame;
+		assert(!frame.empty());
+		Mat img = frame(ROI).clone();
+		if (thresh_flag) {
+			split(img.clone(), channel);
+
+			B = channel.at(0);
+			G = channel.at(1);
+			R = channel.at(2);
+
+			calcHist(&B, 1, 0, Mat(), histormB, 1, &hisnum, &histRange, true, false);
+			calcHist(&G, 1, 0, Mat(), histormG, 1, &hisnum, &histRange, true, false);
+			calcHist(&R, 1, 0, Mat(), histormR, 1, &hisnum, &histRange, true, false);
+
+			MovingAverage(histormB, 50);
+			MovingAverage(histormG, 50);
+			MovingAverage(histormR, 50);
+
+			vector<int> wavetopB = find_wavetop(histormB);
+			vector<int> wavetopG = find_wavetop(histormG);
+			vector<int> wavetopR = find_wavetop(histormR);
+
+			int B_diff = *(wavetopB.cend() - 1) - *(wavetopB.cbegin() + 1);
+			int G_diff = *(wavetopG.cend() - 1) - *(wavetopG.cbegin() + 1);
+			int R_diff = *(wavetopR.cend() - 1) - *(wavetopR.cbegin() + 1);
+
+			bool flag = false;
+
+			if (B_diff > 150 && (G_diff > 150 || R_diff > 150))
+				flag = true;
+			else if (G_diff > 150 && R_diff > 150)
+				flag = true;
+			Mat img_thresh;
+
+			int loc_thresh = 127;
+			if (!flag)
+			{
+				int max_value = max(max(B_diff, G_diff), R_diff); 
+				if (B_diff == max_value)
+				{
+					img_thresh = B;
+					loc_thresh = (*(wavetopB.cend() - 1) + *(wavetopB.cbegin() + 1)) / 2;
+				}
+				else if (G_diff == max_value)
+				{
+					img_thresh = G;
+					loc_thresh = (*(wavetopG.cend() - 1) + *(wavetopG.cbegin() + 1)) / 2;
+				}
+				else
+				{
+					img_thresh = R;
+					loc_thresh = (*(wavetopR.cend() - 1) + *(wavetopR.cbegin() + 1)) / 2;
+				}
+			}
+			else
+				cvtColor(img.clone(), img_thresh, COLOR_BGR2GRAY);
+			threshold(img_thresh, img_thresh, loc_thresh, 255, THRESH_BINARY); 
+			cv::resize(img_thresh, img_thresh, Size(50, 50));
+			hog.compute(img_thresh, result_hog);
+			predict_typ = svm_->predict(Mat(result_hog, CV_32FC1).reshape(0, 1));
+			show1_label = SHOW_Label(choice_label, "test predict: " + to_string(predict_typ), frame.cols - 80); 
+			cout << "test:" << predict_typ << endl;
+		}
+		else {
+			cvtColor(img, img, COLOR_BGR2GRAY); 
+			cv::resize(img, img, Size(50, 50)); 
+			hog.compute(img, result_hog);
+			predict_typ = svm_->predict(Mat(result_hog, CV_32FC1).reshape(0, 1));
+			show1_label = SHOW_Label(choice_label, "test predict: " + to_string(predict_typ), frame.cols - 80);
+			cout << "test:" << predict_typ << endl; 
+
+		}
+		if (show_frame_flag == 0)
+		{
+			rectangle(frame, ROI, Scalar(0, 255, 0), 3);
+			vconcat(show1_label, frame, show1_label);
+		}
+		 if (show_frame_flag == 1 ||dissappear_time==DISSAPPEAR_TIME_LIMIT-1)
+		{
+			show_frame_flag = 2; 
+			dissappear_time = DISSAPPEAR_TIME_LIMIT;
+		}
+		 if (waitKey(300) == uint8_t('s'))
+		 {
+			 show_frame_flag = 0;  
+			 dissappear_time = 0; 
+		 }
+		imshow("frame", show1_label);
+
+		 if (dissappear_time < DISSAPPEAR_TIME_LIMIT)
+			 dissappear_time++;
+
+
+		//		framecnt++;//计算程序消耗时间所用
+		if (break_)
+		{
+			destroyAllWindows();
+			break;
+		}
+
+	}
+
+	//	end = clock();
+	//	cout << "Time consume£º" << double(end - start) / CLOCKS_PER_SEC;
+	//	cout << "Framecnt:"<<framecnt << endl;
+
+	video.release(); 
+	return 0;
+
+}
+ 
 void recall_for_ready(int event, int x, int y, int flags, void* userdata)
 {
 	if (event == EVENT_LBUTTONDBLCLK)
 	{
 		show_frame_flag = 1;
+	}
+	if (event == EVENT_LBUTTONUP)
+	{
+		if (y > 1 && y < 40 && x>1 && x < 80)
+			break_ = true;
 	}
 }
 
@@ -52,8 +218,7 @@ Rect readtxt(string file, bool& thresh_flag)
 	h = atoi(s.c_str());
 	getline(infile, s, ',');
 	thresh_flag = atoi(s.c_str()) != 0;
-	//	cout<<"x1="<<x1<<", y1="<<y1<<", w="<<w<<", h="<<h<<"\nthresh_flag:"<<thresh_flag<<endl;
-
+ 
 	if (w < x1)
 	{
 		int ss = w;
@@ -79,18 +244,6 @@ Rect readtxt(string file, bool& thresh_flag)
 	return temp;
 
 }
-
-Size	WinSize = Size(50, 50),
-BlockSize = Size(20, 20),
-BlockStride = Size(10, 10),
-CellSize = Size(10, 10);
-int		Nbins = 9;
-
-auto hog = HOGDescriptor(WinSize,
-	BlockSize,
-	BlockStride,
-	CellSize,
-	Nbins);
 
 void MovingAverage(Mat &A, int N)
 {
@@ -133,174 +286,11 @@ vector<int> find_wavetop(Mat A)
 	return store_int;
 }
 
-Mat SHOW_Label(Mat choice_label, string s1,int length=500)
+Mat SHOW_Label(Mat choice_label, string s1,int length)
 {
 	Mat temp;
 	Mat SHOW_Label1 = Mat::zeros(Size(length, 40), CV_8UC3);
 	putText(SHOW_Label1, s1, Point(5, 30), FONT_HERSHEY_COMPLEX, 0.95, Scalar(0, 255, 0), 2);
 	hconcat(choice_label, SHOW_Label1, temp);
 	return temp;
-}
-
-int main()
-{
-	//	clock_t start, end;
-	//	start = clock();
-	//	int framecnt = 0;
-	bool thresh_flag;
-	Rect ROI = readtxt("location.txt", thresh_flag);
-
-	cout << ROI << endl;
-	VideoCapture video;
-	video.open(0);
-	if (!video.isOpened())
-	{
-		cout << "cant open video" << endl;
-
-		//		system("pause");
-		return -1;
-	}
-
-	namedWindow("record");
-	setMouseCallback("record", recall);
-
-
-	Mat choice_label = Mat::zeros(Size(80, 40), CV_8UC3);
-	rectangle(choice_label, Rect(1, 1, 79, 39), Scalar(0, 255, 255),2);
-	putText(choice_label, "QUIT", Point(5, 30), FONT_HERSHEY_COMPLEX, 0.95, Scalar(0, 255, 255), 2);
-
-	imshow("record", choice_label);
-	Ptr<ml::SVM> svm_ = ml::SVM::load("svm.dat");
-
-
-	Mat frame, predict, B, G, R, histormB, histormG, histormR;
-	vector<float>  result_hog;
-	vector<Mat> channel;
-	int hisnum = 255;
-	const float range[] = { 0,255 };
-	const float* histRange = { range };
-
-	namedWindow("frame");
-	setMouseCallback("frame", recall_for_ready);
-
-	while (true)
-	{
-		video >> frame;
-		assert(!frame.empty());
-		Mat img = frame(ROI).clone();
-		if (thresh_flag) {
-			split(img.clone(), channel);
-
-			B = channel.at(0);
-			G = channel.at(1);
-			R = channel.at(2);
-
-			calcHist(&B, 1, 0, Mat(), histormB, 1, &hisnum, &histRange, true, false);
-			calcHist(&G, 1, 0, Mat(), histormG, 1, &hisnum, &histRange, true, false);
-			calcHist(&R, 1, 0, Mat(), histormR, 1, &hisnum, &histRange, true, false);
-
-			MovingAverage(histormB, 50);
-			MovingAverage(histormG, 50);
-			MovingAverage(histormR, 50);
-
-			vector<int> wavetopB = find_wavetop(histormB);
-			vector<int> wavetopG = find_wavetop(histormG);
-			vector<int> wavetopR = find_wavetop(histormR);
-
-			int B_diff = *(wavetopB.cend() - 1) - *(wavetopB.cbegin() + 1);
-			int G_diff = *(wavetopG.cend() - 1) - *(wavetopG.cbegin() + 1);
-			int R_diff = *(wavetopR.cend() - 1) - *(wavetopR.cbegin() + 1);
-
-			bool flag = false;
-
-			if (B_diff > 150 && (G_diff > 150 || R_diff > 150))
-				flag = true;
-			else if (G_diff > 150 && R_diff > 150)
-				flag = true;
-			Mat img_thresh;
-
-			int loc_thresh = 127;
-			if (!flag)
-			{
-				int max_value = max(max(B_diff, G_diff), R_diff);
-				//cout << max_value;
-				if (B_diff == max_value)
-				{
-					img_thresh = B;
-					loc_thresh = (*(wavetopB.cend() - 1) + *(wavetopB.cbegin() + 1)) / 2;
-				}
-				else if (G_diff == max_value)
-				{
-					img_thresh = G;
-					loc_thresh = (*(wavetopG.cend() - 1) + *(wavetopG.cbegin() + 1)) / 2;
-				}
-				else
-				{
-					img_thresh = R;
-					loc_thresh = (*(wavetopR.cend() - 1) + *(wavetopR.cbegin() + 1)) / 2;
-				}
-			}
-			else
-				cvtColor(img.clone(), img_thresh, COLOR_BGR2GRAY);
-			threshold(img_thresh, img_thresh, loc_thresh, 255, THRESH_BINARY);
-			if (show_frame_flag == 0)
-				imshow("img_thresh", img_thresh);
-			else if (show_frame_flag == 1)
-				destroyWindow("img_thresh");
-			cv::resize(img_thresh, img_thresh, Size(50, 50));
-			hog.compute(img_thresh, result_hog);
-			int s = svm_->predict(Mat(result_hog, CV_32FC1).reshape(0, 1));
-			imshow("record", SHOW_Label(choice_label, "test predict: " + to_string(s),300));
-			cout << "test:" << s << endl;
-		}
-		else {
-			cvtColor(img, img, COLOR_BGR2GRAY);
-			if (show_frame_flag == 0)
-				imshow("img", img);
-			else if (show_frame_flag == 1)
-				destroyWindow("img");
-
-			cv::resize(img, img, Size(50, 50));
-
-			hog.compute(img, result_hog);
-			int s = svm_->predict(Mat(result_hog, CV_32FC1).reshape(0, 1));
-			imshow("record", SHOW_Label(choice_label, "test predict: "+to_string(s),300));
-			cout << "test:" << s << endl;
-
-
-
-		}
-
-		if (show_frame_flag == 0)
-		{
-			rectangle(frame, ROI, Scalar(0, 255, 0), 3);
-			imshow("frame", frame);
-		}
-		else if (show_frame_flag == 1)
-		{
-			show_frame_flag = 2;
-			destroyWindow("frame");
-		}
-		if (waitKey(1) == uint8_t('s'))
-			show_frame_flag = 0;
-
-
-
-		//		framecnt++;
-		if (break_)
-		{
-			destroyAllWindows();
-			break;
-		}
-
-	}
-
-	//	end = clock();
-	//	cout << "Time consume£º" << double(end - start) / CLOCKS_PER_SEC;
-	//	cout << "Framecnt:"<<framecnt << endl;
-
-	video.release();
-	//	system("pause");
-	return 0;
-
 }

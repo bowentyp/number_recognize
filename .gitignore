@@ -240,3 +240,6 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
+/number_data.rar
+/Addition/img.xml
+/Addition/label.xml

@@ -35,38 +35,55 @@ Mat img;
 int ix1 = -1, iy1 = -1, ix2 = -1, iy2 = -1;
 bool drawing_ = false;
 bool recall_for_back = false, recall_for_next = false, recall_for_esc = false, recall_for_no = false, recall_for_ok = false;
+vector<Mat> train_img;
+vector<int> chars_label;
+const String	LOC_FILE_NAME = "C:\\A_Cprj\\number_recognize\\function\\location.xml",
+				SVM_MODE_NAME = "C:\\A_Cprj\\number_recognize\\function\\svm.xml";
 
 void  Key_quit_waitkey(int waittime);
 void recall_for_setup(int event, int x, int y, int flags, void* userdata);
 void recall_for_draw(int event, int x, int y, int flags, void* userdata);
-Rect readtxt(string file, bool& thresh_flag);
 void MovingAverage(Mat &A, int N);
 vector<int> find_wavetop(Mat A);
 Mat choice_for_setup();
 Mat SHOW_Label(Mat choice_label, string s1, bool lines = false);
 Mat SHOW_once(string s1, int overtime = 0, Mat A = Mat());
+Mat Thresh_Then_Delete();
 void addition(vector<Mat> &img_, vector<int> &label_);
+void Camera_Write_To_File();
+void DrawROI_Then_Choose_Image();
+Mat Thresh_Process_Func(const Mat );
+void SVM_train(const Mat svm_label_data,const Mat svm_image_data);
+
 int main()
+{ 
+	Camera_Write_To_File();
+	DrawROI_Then_Choose_Image(); 
+	//addition(chars_img,chars_label); 
+	SVM_train(Mat(chars_label), Thresh_Then_Delete());
+
+	return 0;
+
+}
+
+void Camera_Write_To_File()
 {
-
-	Mat choice_label = choice_for_setup();
-
-	//////以下是录制视频的代码
-
-	Mat choice_label_show = SHOW_Label(SHOW_Label(choice_label,
+	
+	Mat choice_label_show = SHOW_Label(SHOW_Label(choice_for_setup(),
 		"When camera ready,clik OK", true),
 		"to record ; ESC to quit");
 
 	namedWindow("recall_for_setup");
 	setMouseCallback("recall_for_setup", recall_for_setup);
 	imshow("recall_for_setup", choice_label_show);
+	waitKey(1);
 
 	VideoCapture cap(0);
 	//cap.set(CAP_PROP_AUTO_EXPOSURE, 1);
 	int fourcc = VideoWriter::fourcc('M', 'P', '4', '2');
 	auto video_writor = VideoWriter("train.avi", fourcc, 10,
 		Size(cap.get(CAP_PROP_FRAME_WIDTH), cap.get(CAP_PROP_FRAME_HEIGHT)), true);
-	
+
 	Mat frame;
 	int cnt_record = 0;
 	while (true)
@@ -79,13 +96,12 @@ int main()
 		{
 			video_writor.write(frame);
 			cnt_record++;
-			choice_label_show = SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
+			choice_label_show = SHOW_Label(SHOW_Label(SHOW_Label(choice_for_setup(),
 				"When camera ready,clik OK", true),
 				"to record ; ESC to quit"),
 				"record " + to_string(cnt_record) + " pics");
 			imshow("recall_for_setup", choice_label_show);
 			cout << "frame record:" << cnt_record << " pics" << endl;
-
 		}
 		if (recall_for_esc)
 		{
@@ -94,24 +110,27 @@ int main()
 				SHOW_once("clik OK to record", 1000);
 				continue;
 			}
-			destroyWindow("frame");
 			break;
 		}
 	}
+	destroyAllWindows();
 	video_writor.release();
 	cap.release();
-	cap.open("train.avi");
-	choice_label_show = SHOW_Label(SHOW_Label(choice_label,
-		"Draw fixed ROI Firstly", true),
-		"Then adjust label(BACK/NEXT)");
+}
 
-	vector<Mat> train_img;
-	vector<int> chars_label;
+void DrawROI_Then_Choose_Image()
+{
+	VideoCapture cap("train.avi");
+
 	int label_cnt = 1;
 	namedWindow("img");
 	setMouseCallback("img", recall_for_draw);
-	imshow("recall_for_setup", choice_label_show);
-
+	namedWindow("recall_for_setup");
+	setMouseCallback("recall_for_setup", recall_for_setup);
+	imshow("recall_for_setup", SHOW_Label(SHOW_Label(choice_for_setup(),
+									"Draw fixed ROI Firstly", true),
+									"Then adjust label(BACK/NEXT)"));
+	Mat frame;
 	for (int cnt_cap = 0; cnt_cap < cap.get(CAP_PROP_FRAME_COUNT); cnt_cap++)
 	{
 		cap.read(frame);
@@ -143,7 +162,7 @@ int main()
 			if (recall_for_back)
 			{
 				label_cnt--;
-				imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
+				imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_for_setup(),
 					"Add to train(OK/NO),Quit(ESC)", true),
 					"Change label(BACK/NEXT)"),
 					"NOW label is: " + to_string(label_cnt)));
@@ -151,7 +170,7 @@ int main()
 			if (recall_for_next)
 			{
 				label_cnt++;
-				imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
+				imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_for_setup(),
 					"Add to train(OK/NO),Quit(ESC)", true),
 					"Change label(BACK/NEXT)"),
 					"NOW label is: " + to_string(label_cnt)));
@@ -181,28 +200,172 @@ int main()
 			break;
 	}
 
-	destroyWindow("img");
-
-	ofstream location_file;
-	location_file.open("location.txt", ios::out);
-	location_file << ix1 << "," << iy1 << "," << ix2 << "," << iy2 << ",";
-
+	destroyAllWindows();
 	cap.release();
+}
 
+Mat Thresh_Then_Delete()
+{
 	vector<int> numdelete;
 	vector<Mat> train_thresh;
-
-	//////做二值化
+	namedWindow("recall_for_setup");	
+	setMouseCallback("recall_for_setup", recall_for_setup);
 	for (int num_record = 0; num_record < train_img.size(); num_record++)
 	{
-		/////分量提取并作后续工作
+		train_thresh.push_back(Thresh_Process_Func(train_img[num_record]));
+	}
+	//////做一些删减 
+	imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_for_setup(),
+								"Delete this image(OK)", true),
+								"Not delete(NEXT)"),
+								"NOW label is:" + to_string(chars_label[0])));
+	for (int num_record1 = 0; num_record1 < train_img.size(); num_record1++)
+	{
+		imshow("img_thresh", train_thresh[num_record1]);
+		imshow("train_img", train_img[num_record1]);
+		waitKey(1);
+		while (true)
+		{
+			recall_for_ok = false;
+			recall_for_next = false;
+			recall_for_back = false;
+
+			Key_quit_waitkey(50);//can't lose this sentense
+			if (recall_for_ok)
+			{
+				if (num_record1 < 0)
+				{
+					SHOW_once("NO images", 500);
+					break;
+				}
+				SHOW_once("Delete Done:" + to_string(chars_label[num_record1]), 500);
+				train_img.erase(train_img.cbegin() + num_record1);
+				train_thresh.erase(train_thresh.cbegin() + num_record1);
+				chars_label.erase(chars_label.cbegin() + num_record1);
+				num_record1--;
+				imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_for_setup(),
+											"Delete this image(OK)", true),
+											"Not delete(NEXT)"),
+											"NOW label is:" + to_string(chars_label[num_record1 + 1])));
+				break;
+
+			}
+			if (recall_for_back)
+			{
+				if (num_record1 == 0)
+				{
+					SHOW_once("NO images", 500);
+					continue;
+				}
+				num_record1--;
+				imshow("img_thresh", train_thresh[num_record1]);
+				imshow("train_img", train_img[num_record1]);
+				imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_for_setup(),
+												"Delete this image(OK)", true),
+												"Not delete(NEXT)"),
+												"NOW label is:" + to_string(chars_label[num_record1])));
+				recall_for_back = false;
+				waitKey(50);
+				continue;
+			}
+			if (recall_for_next)
+			{
+				imshow("recall_for_setup", SHOW_Label(SHOW_Label(SHOW_Label(choice_for_setup(),
+												"Delete this image(OK)", true),
+												"Not delete(NEXT)"),
+												"NOW label is:" + to_string(chars_label[num_record1 + 1])));
+				break;
+			}
+		}
+	}
+	destroyWindow("img_thresh");
+	destroyWindow("train_img");
+
+
+	bool key_choose_thresh = false;
+	 
+
+	imshow("recall_for_setup", SHOW_Label(SHOW_Label(choice_for_setup(),
+								"Use Binarization image to ", true),
+								"make model file?(OK/NO)"));
+
+	while (true)
+	{
+		recall_for_esc = false;
+		recall_for_ok = false;
+		Key_quit_waitkey(100);
+		if (recall_for_ok)
+		{
+			key_choose_thresh = true;
+			break;
+		}
+		else if (recall_for_no)
+			break;
+	}
+
+	vector<Mat> chars_img;
+	if (key_choose_thresh)
+	{
+		chars_img = train_thresh;
+		SHOW_once("You choose Thresh", 500);
+	}
+	else
+	{
+		chars_img = train_img;
+		SHOW_once("You choose Gray", 500);
+	}
+
+	FileStorage  location_file(LOC_FILE_NAME, FileStorage::WRITE);
+	location_file << "ix1" << ix1 << "iy1" << iy1 << "ix2" << ix2 << "iy2" << iy2;
+	location_file << "key_choose_thresh" << key_choose_thresh;
+	location_file.release();
+	
+	Mat hog_result_transpose;
+	vector<float> result_hog;
+	resize(chars_img[0], img, Size(32, 32));
+	hog.compute(img, result_hog);
+	transpose(Mat(result_hog, CV_32FC1), hog_result_transpose);
+
+	for (int img_cnt = 1; img_cnt<chars_img.size(); img_cnt++)
+	{
+		Mat temp;
+		resize(chars_img[img_cnt], img, Size(32, 32));
+		hog.compute(img, result_hog);
+		transpose(Mat(result_hog, CV_32FC1), temp);
+		vconcat(hog_result_transpose, temp.reshape(0, 1), hog_result_transpose);
+	}
+	destroyAllWindows();
+	return hog_result_transpose;
+}
+
+void SVM_train(const Mat svm_label_data, const Mat svm_image_data)
+{
+	Ptr<ml::SVM> svm_ = ml::SVM::create();
+	svm_->setC(100);
+	svm_->setType(SVM::C_SVC);
+	svm_->setKernel(SVM::RBF);
+	svm_->setGamma(0.3);
+	//////训练开始
+	cout << "begin training" << endl;
+	SHOW_once("prepare data welly", 1000, SHOW_once("begin training"));
+	svm_->train(svm_image_data, ROW_SAMPLE, svm_label_data);
+	cout << "train Done" << endl;
+	//Ptr<SVM> svm_ =  Algorithm::load<SVM>("svm.dat");////opencv310 下load函数并没有在SVM里面
+
+	
+	svm_->save(SVM_MODE_NAME);
+}
+
+Mat Thresh_Process_Func(const Mat  image) {
+	//////做二值化
+ 
 		Mat  B, G, R, histormB, histormG, histormR;
 		vector<Mat> channel_split;
 		int hisnum = 255;
 		const float range[] = { 0,255 };
 		const float* histRange = { range };
-
-		split(train_img[num_record].clone(), channel_split);
+		/////分量提取并作后续工作
+		split(image.clone(), channel_split);
 
 		B = channel_split.at(0);
 		G = channel_split.at(1);
@@ -254,166 +417,9 @@ int main()
 			}
 		}
 		else
-			cvtColor(train_img[num_record].clone(), img_thresh, COLOR_BGR2GRAY);
+			cvtColor(image.clone(), img_thresh, COLOR_BGR2GRAY);
 		threshold(img_thresh, img_thresh, loc_thresh, 255, THRESH_BINARY);
-		train_thresh.push_back(img_thresh);
-	}
-
-	//////做一些删减
-	choice_label_show = SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
-		"Delete this image(OK)", true),
-		"Not delete(NEXT)"),
-		"NOW label is:" + to_string(chars_label[0]));
-	imshow("recall_for_setup", choice_label_show);
-	for (int num_record1 = 0; num_record1 < train_img.size(); num_record1++)
-	{
-		imshow("img_thresh", train_thresh[num_record1]);
-		imshow("train_img", train_img[num_record1]);
-		waitKey(1);
-		while (true)
-		{
-			recall_for_ok = false;
-			recall_for_next = false;
-			recall_for_back = false;
-
-			Key_quit_waitkey(50);//can't lose this sentense
-			if (recall_for_ok)
-			{
-				if (num_record1 < 0)
-				{
-					SHOW_once("NO images", 500);
-					break;
-				}
-				SHOW_once("Delete Done:" + to_string(chars_label[num_record1]), 500);
-				train_img.erase(train_img.cbegin() + num_record1);
-				train_thresh.erase(train_thresh.cbegin() + num_record1);
-				chars_label.erase(chars_label.cbegin() + num_record1);
-				num_record1--;
-				choice_label_show = SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
-					"Delete this image(OK)", true),
-					"Not delete(NEXT)"),
-					"NOW label is:" + to_string(chars_label[num_record1 + 1]));
-				imshow("recall_for_setup", choice_label_show);
-				break;
-
-			}
-			if (recall_for_back)
-			{
-				if (num_record1 == 0)
-				{
-					SHOW_once("NO images", 500);
-					continue;
-				}
-				num_record1--;
-				imshow("img_thresh", train_thresh[num_record1]);
-				imshow("train_img", train_img[num_record1]);
-				choice_label_show = SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
-					"Delete this image(OK)", true),
-					"Not delete(NEXT)"),
-					"NOW label is:" + to_string(chars_label[num_record1]));
-				imshow("recall_for_setup", choice_label_show);
-				recall_for_back = false;
-				waitKey(50);
-				continue;
-			}
-			if (recall_for_next)
-			{
-				choice_label_show = SHOW_Label(SHOW_Label(SHOW_Label(choice_label,
-					"Delete this image(OK)", true),
-					"Not delete(NEXT)"),
-					"NOW label is:" + to_string(chars_label[num_record1 + 1]));
-				imshow("recall_for_setup", choice_label_show);
-				break;
-			}
-		}
-	}
-	destroyWindow("img_thresh");
-	destroyWindow("train_img");
-
-
-	bool key_choose_thresh = false;
-
-	choice_label_show = SHOW_Label(SHOW_Label(choice_label,
-		"Use Binarization image to ", true),
-		"make model file?(OK/NO)");
-
-	imshow("recall_for_setup", choice_label_show);
-
-	while (true)
-	{
-		recall_for_esc = false;
-		recall_for_ok = false;
-		Key_quit_waitkey(100);
-		if (recall_for_ok)
-		{
-			key_choose_thresh = true;
-			break;
-		}
-		else if (recall_for_no)
-			break;
-	}
-	destroyAllWindows();
-	vector<Mat> chars_img;
-	if (key_choose_thresh)
-	{
-		chars_img = train_thresh;
-		SHOW_once("You choose Thresh", 500);
-	}
-	else
-	{
-		chars_img = train_img;
-		SHOW_once("You choose Gray", 500);
-	}
-	location_file << key_choose_thresh;
-	location_file.close();
-
-	
-	//addition(chars_img,chars_label);
-	
-	Mat svm_image_data;
-	Mat svm_label_data = Mat(chars_label);
-	vector<float> result_hog;
-
-	resize(chars_img[0], img, Size(32, 32));
-	hog.compute(img, result_hog);
-	transpose(Mat(result_hog, CV_32FC1), svm_image_data);
-
-	for (int img_cnt = 1; img_cnt<chars_img.size(); img_cnt++)
-	{
-		Mat temp;
-		resize(chars_img[img_cnt], img, Size(32, 32));
-		hog.compute(img, result_hog);
-		transpose(Mat(result_hog, CV_32FC1), temp);
-		vconcat(svm_image_data, temp.reshape(0, 1), svm_image_data);
-	}
-
-
-
-
-
-	//	cout << "img.size():" << svm_image_data.size() << endl;
-	 
-
-	//////训练开始
-	cout << "begin training" << endl;
-
-	SHOW_once("prepare data welly", 1000, SHOW_once("begin training"));
-
-	Ptr<ml::SVM> svm_ = ml::SVM::create();
-	svm_->setC(100);
-	svm_->setType(SVM::C_SVC);
-	svm_->setKernel(SVM::RBF);
-	svm_->setGamma(0.3);
-
-	svm_->train(svm_image_data, ROW_SAMPLE, svm_label_data);
-	svm_->save("svm.dat");
-
-	cout << "train Done" << endl;
-	//Ptr<SVM> svm_ =  Algorithm::load<SVM>("svm.dat");////opencv310 下load函数并没有在SVM里面
-
-	//	system("pause");
-	return 0;
-
+		return img_thresh;
 }
 
 void  Key_quit_waitkey(int waittime)
@@ -469,51 +475,6 @@ void recall_for_draw(int event, int x, int y, int flags, void* userdata)
 		
 			ix2 = ix1 + weight; iy2 = iy1 + weight;
 	}
-}
-
-Rect readtxt(string file, bool& thresh_flag)
-{
-	ifstream infile;
-	infile.open(file.data(), ios::in);
-	assert(infile.is_open());
-
-	string s;
-	int x1 = 0, y1 = 0, w = 0, h = 0;
-	getline(infile, s, ',');
-	x1 = atoi(s.c_str());
-	getline(infile, s, ',');
-	y1 = atoi(s.c_str());
-	getline(infile, s, ',');
-	w = atoi(s.c_str());
-	getline(infile, s, ',');
-	h = atoi(s.c_str());
-	getline(infile, s, ',');
-	thresh_flag = atoi(s.c_str()) != 0;
-
-	if (w < x1)
-	{
-		int ss = w;
-		w = x1 - w;
-		x1 = ss;
-	}
-	else
-		w = w - x1;
-
-	if (h < y1)
-	{
-		int ss = h;
-		h = y1 - h;
-		y1 = ss;
-	}
-	else
-		h = h - y1;
-
-	Rect temp(x1, y1, w, h);
-
-	infile.close();
-
-	return temp;
-
 }
 
 void MovingAverage(Mat &A, int N)

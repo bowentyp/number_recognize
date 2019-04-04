@@ -20,22 +20,15 @@ const int DISSAPPEAR_TIME_LIMIT = 200;
 //BlockStride = Size(10, 10),
 //CellSize = Size(10, 10);
 //int		Nbins = 9;
-Size	WinSize = Size(32, 32),
-BlockSize = Size(12, 16),
-BlockStride = Size(4, 8),
-CellSize = Size(6, 8);
-int		Nbins = 9;
-auto hog = HOGDescriptor(WinSize,
-	BlockSize,
-	BlockStride,
-	CellSize,
-	Nbins);
+
  
 Mat SHOW_Label(Mat choice_label, string s1,int length = 560);
 void recall_for_ready(int event, int x, int y, int flags, void* userdata);
 Rect readtxt(string file, bool& thresh_flag);
 void MovingAverage(Mat &A, int N);
 vector<int> find_wavetop(Mat A);
+Mat Thresh_Process_Func(const Mat  ); 
+int HOG_predict(const Mat  );
 
 bool break_ = false;
 uint show_frame_flag = 0;
@@ -65,10 +58,8 @@ int main()
 	putText(choice_label, "QUIT", Point(5, 30), FONT_HERSHEY_COMPLEX, 0.95, Scalar(0, 255, 255), 2);
 	
 	 
-	Ptr<ml::SVM> svm_ = ml::SVM::load("svm.dat"); 
 
 	Mat frame, predict, B, G, R, histormB, histormG, histormR;
-	vector<float>  result_hog;
 	vector<Mat> channel;
 	int hisnum = 255;
 	const float range[] = { 0,255 };
@@ -76,7 +67,6 @@ int main()
 
 	namedWindow("frame");
 	setMouseCallback("frame", recall_for_ready);
-	int predict_typ;
 	 
 	while (true)
 	{
@@ -84,73 +74,19 @@ int main()
 		assert(!frame.empty());
 		Mat img = frame(ROI).clone();
 		if (thresh_flag) {
-			split(img.clone(), channel);
+			Mat img_thresh= Thresh_Process_Func(  img );
 
-			B = channel.at(0);
-			G = channel.at(1);
-			R = channel.at(2);
-
-			calcHist(&B, 1, 0, Mat(), histormB, 1, &hisnum, &histRange, true, false);
-			calcHist(&G, 1, 0, Mat(), histormG, 1, &hisnum, &histRange, true, false);
-			calcHist(&R, 1, 0, Mat(), histormR, 1, &hisnum, &histRange, true, false);
-
-			MovingAverage(histormB, 50);
-			MovingAverage(histormG, 50);
-			MovingAverage(histormR, 50);
-
-			vector<int> wavetopB = find_wavetop(histormB);
-			vector<int> wavetopG = find_wavetop(histormG);
-			vector<int> wavetopR = find_wavetop(histormR);
-
-			int B_diff = *(wavetopB.cend() - 1) - *(wavetopB.cbegin() + 1);
-			int G_diff = *(wavetopG.cend() - 1) - *(wavetopG.cbegin() + 1);
-			int R_diff = *(wavetopR.cend() - 1) - *(wavetopR.cbegin() + 1);
-
-			bool flag = false;
-
-			if (B_diff > 150 && (G_diff > 150 || R_diff > 150))
-				flag = true;
-			else if (G_diff > 150 && R_diff > 150)
-				flag = true;
-			Mat img_thresh;
-
-			int loc_thresh = 127;
-			if (!flag)
-			{
-				int max_value = max(max(B_diff, G_diff), R_diff); 
-				if (B_diff == max_value)
-				{
-					img_thresh = B;
-					loc_thresh = (*(wavetopB.cend() - 1) + *(wavetopB.cbegin() + 1)) / 2;
-				}
-				else if (G_diff == max_value)
-				{
-					img_thresh = G;
-					loc_thresh = (*(wavetopG.cend() - 1) + *(wavetopG.cbegin() + 1)) / 2;
-				}
-				else
-				{
-					img_thresh = R;
-					loc_thresh = (*(wavetopR.cend() - 1) + *(wavetopR.cbegin() + 1)) / 2;
-				}
-			}
-			else
-				cvtColor(img.clone(), img_thresh, COLOR_BGR2GRAY);
-			threshold(img_thresh, img_thresh, loc_thresh, 255, THRESH_BINARY); 
 			cv::resize(img_thresh, img_thresh, Size(32, 32));
-			hog.compute(img_thresh, result_hog);
-			predict_typ = svm_->predict(Mat(result_hog, CV_32FC1).reshape(0, 1));
-			show1_label = SHOW_Label(choice_label, "test predict: " + to_string(predict_typ), frame.cols - 80); 
-			cout << "test:" << predict_typ << endl;
+			imshow("img_thresh", img_thresh);
+			
+			show1_label = SHOW_Label(choice_label, "test predict: " + to_string(HOG_predict(img_thresh)), frame.cols - 80);
+			cout << "test:" << HOG_predict(img_thresh) << endl;
 		}
 		else {
 			cvtColor(img, img, COLOR_BGR2GRAY); 
 			cv::resize(img, img, Size(32, 32)); 
-			hog.compute(img, result_hog);
-			predict_typ = svm_->predict(Mat(result_hog, CV_32FC1).reshape(0, 1));
-			show1_label = SHOW_Label(choice_label, "test predict: " + to_string(predict_typ), frame.cols - 80);
-			cout << "test:" << predict_typ << endl; 
-
+			show1_label = SHOW_Label(choice_label, "test predict: " + to_string(HOG_predict(img)), frame.cols - 80);
+			cout << "test:" << HOG_predict(img) << endl;
 		}
 		if (show_frame_flag == 0)
 		{
@@ -190,6 +126,23 @@ int main()
 	return 0;
 
 }
+int HOG_predict(const Mat image)
+{
+	int predict_number=0;
+	Size	WinSize = Size(32, 32),
+		BlockSize = Size(12, 16),
+		BlockStride = Size(4, 8),
+		CellSize = Size(6, 8);
+	int		Nbins = 9;
+	auto hog = HOGDescriptor(WinSize,BlockSize,BlockStride,CellSize,Nbins);
+	vector<float>  result_hog;
+	Ptr<ml::SVM> svm_ = ml::SVM::load("svm.xml");
+
+	hog.compute(image, result_hog);
+	predict_number = svm_->predict(Mat(result_hog, CV_32FC1).reshape(0, 1));
+
+	return predict_number;
+}
  
 void recall_for_ready(int event, int x, int y, int flags, void* userdata)
 {
@@ -206,45 +159,17 @@ void recall_for_ready(int event, int x, int y, int flags, void* userdata)
 
 Rect readtxt(string file, bool& thresh_flag)
 {
-	ifstream infile;
-	infile.open(file.data(), ios::in);
-	assert(infile.is_open());
+	FileStorage  infile("location.xml", FileStorage::READ);
+	int x1 = 0, y1 = 0, y2 = 0, x2 = 0;
 
-	string s;
-	int x1 = 0, y1 = 0, w = 0, h = 0;
-	getline(infile, s, ',');
-	x1 = atoi(s.c_str());
-	getline(infile, s, ',');
-	y1 = atoi(s.c_str());
-	getline(infile, s, ',');
-	w = atoi(s.c_str());
-	getline(infile, s, ',');
-	h = atoi(s.c_str());
-	getline(infile, s, ',');
-	thresh_flag = atoi(s.c_str()) != 0;
- 
-	if (w < x1)
-	{
-		int ss = w;
-		w = x1 - w;
-		x1 = ss;
-	}
-	else
-		w = w - x1;
+	infile["ix1"] >> x1;
+	infile["iy1"] >> y1;
+	infile["iy2"] >> y2;
+	infile["ix2"] >> x2;
+	infile["key_choose_thresh"] >> thresh_flag;
 
-	if (h < y1)
-	{
-		int ss = h;
-		h = y1 - h;
-		y1 = ss;
-	}
-	else
-		h = h - y1;
-
-	Rect temp(x1, y1, w, h);
-
-	infile.close();
-
+	Rect temp(Point(x1,y1),Point(x2,y2));
+	infile.release();
 	return temp;
 
 }
@@ -297,4 +222,70 @@ Mat SHOW_Label(Mat choice_label, string s1,int length)
 	putText(SHOW_Label1, s1, Point(5, 30), FONT_HERSHEY_COMPLEX, 0.95, Scalar(0, 255, 0), 2);
 	hconcat(choice_label, SHOW_Label1, temp);
 	return temp;
+}
+
+Mat Thresh_Process_Func(const Mat  image) {
+	//////做二值化
+
+	Mat  B, G, R, histormB, histormG, histormR;
+	vector<Mat> channel_split;
+	int hisnum = 255;
+	const float range[] = { 0,255 };
+	const float* histRange = { range };
+	/////分量提取并作后续工作
+	split(image.clone(), channel_split);
+
+	B = channel_split.at(0);
+	G = channel_split.at(1);
+	R = channel_split.at(2);
+
+	calcHist(&B, 1, 0, Mat(), histormB, 1, &hisnum, &histRange, true, false);
+	calcHist(&G, 1, 0, Mat(), histormG, 1, &hisnum, &histRange, true, false);
+	calcHist(&R, 1, 0, Mat(), histormR, 1, &hisnum, &histRange, true, false);
+
+	MovingAverage(histormB, 50);
+	MovingAverage(histormG, 50);
+	MovingAverage(histormR, 50);
+
+	vector<int> wavetopB = find_wavetop(histormB);
+	vector<int> wavetopG = find_wavetop(histormG);
+	vector<int> wavetopR = find_wavetop(histormR);
+
+	int B_diff = *(wavetopB.cend() - 1) - *(wavetopB.cbegin() + 1);
+	int G_diff = *(wavetopG.cend() - 1) - *(wavetopG.cbegin() + 1);
+	int R_diff = *(wavetopR.cend() - 1) - *(wavetopR.cbegin() + 1);
+
+	bool flag = false;
+
+	if (B_diff > 150 && (G_diff > 150 || R_diff > 150))
+		flag = true;
+	else if (G_diff > 150 && R_diff > 150)
+		flag = true;
+	Mat img_thresh;
+
+	int loc_thresh = 127;
+	if (!flag)
+	{
+		int max_value = max(max(B_diff, G_diff), R_diff);
+
+		if (B_diff == max_value)
+		{
+			img_thresh = B;
+			loc_thresh = (*(wavetopB.cend() - 1) + *(wavetopB.cbegin() + 1)) / 2;
+		}
+		else if (G_diff == max_value)
+		{
+			img_thresh = G;
+			loc_thresh = (*(wavetopG.cend() - 1) + *(wavetopG.cbegin() + 1)) / 2;
+		}
+		else
+		{
+			img_thresh = R;
+			loc_thresh = (*(wavetopR.cend() - 1) + *(wavetopR.cbegin() + 1)) / 2;
+		}
+	}
+	else
+		cvtColor(image.clone(), img_thresh, COLOR_BGR2GRAY);
+	threshold(img_thresh, img_thresh, loc_thresh, 255, THRESH_BINARY);
+	return img_thresh;
 }

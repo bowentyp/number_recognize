@@ -14,21 +14,21 @@ void concat();
 int main()
 {
 	 
-	Size	WinSize = Size(32, 32),
-		BlockSize = Size(12, 16),
-		BlockStride = Size(4, 8),
-		CellSize = Size(6, 8);
-	int		Nbins = 9;
-	HOGDescriptor hog(WinSize, BlockSize, BlockStride, CellSize, Nbins);
+	//Size	WinSize = Size(32, 32),
+	//	BlockSize = Size(12, 16),
+	//	BlockStride = Size(4, 8),
+	//	CellSize = Size(6, 8);
+	//int		Nbins = 9;
+	//HOGDescriptor hog(WinSize, BlockSize, BlockStride, CellSize, Nbins);
 
-	vector<float> result_hog;
-	Mat img = imread("C:\\A_Cprj\\number_recognize\\number_data\\3\\1_3.jpg",0);
-	resize(img, img, Size(32, 32));
-	hog.compute(img, result_hog);
-	cout << result_hog.size() << endl;
-	waitKey(1);
-	system("pause");
-	return 0;
+	//vector<float> result_hog;
+	//Mat img = imread("C:\\A_Cprj\\number_recognize\\number_data\\3\\1_3.jpg",0);
+	//resize(img, img, Size(32, 32));
+	//hog.compute(img, result_hog);
+	//cout << result_hog.size() << endl;
+	//waitKey(1);
+	//system("pause");
+	//return 0;
 }
 
 void take()

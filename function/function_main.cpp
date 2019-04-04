@@ -15,12 +15,16 @@ using namespace cv;
 using namespace cv::ml;
 using namespace std;
 const int DISSAPPEAR_TIME_LIMIT = 200;
-Size	WinSize = Size(50, 50),
-BlockSize = Size(20, 20),
-BlockStride = Size(10, 10),
-CellSize = Size(10, 10);
+//Size	WinSize = Size(50, 50),
+//BlockSize = Size(20, 20),
+//BlockStride = Size(10, 10),
+//CellSize = Size(10, 10);
+//int		Nbins = 9;
+Size	WinSize = Size(32, 32),
+BlockSize = Size(12, 16),
+BlockStride = Size(4, 8),
+CellSize = Size(6, 8);
 int		Nbins = 9;
-
 auto hog = HOGDescriptor(WinSize,
 	BlockSize,
 	BlockStride,
@@ -133,7 +137,7 @@ int main()
 			else
 				cvtColor(img.clone(), img_thresh, COLOR_BGR2GRAY);
 			threshold(img_thresh, img_thresh, loc_thresh, 255, THRESH_BINARY); 
-			cv::resize(img_thresh, img_thresh, Size(50, 50));
+			cv::resize(img_thresh, img_thresh, Size(32, 32));
 			hog.compute(img_thresh, result_hog);
 			predict_typ = svm_->predict(Mat(result_hog, CV_32FC1).reshape(0, 1));
 			show1_label = SHOW_Label(choice_label, "test predict: " + to_string(predict_typ), frame.cols - 80); 
@@ -141,7 +145,7 @@ int main()
 		}
 		else {
 			cvtColor(img, img, COLOR_BGR2GRAY); 
-			cv::resize(img, img, Size(50, 50)); 
+			cv::resize(img, img, Size(32, 32)); 
 			hog.compute(img, result_hog);
 			predict_typ = svm_->predict(Mat(result_hog, CV_32FC1).reshape(0, 1));
 			show1_label = SHOW_Label(choice_label, "test predict: " + to_string(predict_typ), frame.cols - 80);
@@ -150,7 +154,7 @@ int main()
 		}
 		if (show_frame_flag == 0)
 		{
-			rectangle(frame, ROI, Scalar(0, 255, 0), 3);
+			rectangle(frame, ROI, Scalar(0, 255, 0), 1);
 			vconcat(show1_label, frame, show1_label);
 		}
 		 if (show_frame_flag == 1 ||dissappear_time==DISSAPPEAR_TIME_LIMIT-1)

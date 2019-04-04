@@ -19,12 +19,16 @@ using namespace std;
 
 
 
-
-Size	WinSize = Size(50, 50),
-BlockSize = Size(20, 20),
-BlockStride = Size(10, 10),
-CellSize = Size(10, 10);
+Size	WinSize = Size(32, 32),
+BlockSize = Size(12, 16),
+BlockStride = Size(4, 8),
+CellSize = Size(6, 8);
 int		Nbins = 9;
+//Size	WinSize = Size(50, 50),
+//BlockSize = Size(10, 30),
+//BlockStride = Size(5, 10),
+//CellSize = Size(5, 10);
+//int		Nbins = 9;
 HOGDescriptor hog(WinSize, BlockSize, BlockStride, CellSize, Nbins);
 
 Mat img;
@@ -41,9 +45,10 @@ vector<int> find_wavetop(Mat A);
 Mat choice_for_setup();
 Mat SHOW_Label(Mat choice_label, string s1, bool lines = false);
 Mat SHOW_once(string s1, int overtime = 0, Mat A = Mat());
-
+void addition(vector<Mat> &img_, vector<int> &label_);
 int main()
 {
+
 	Mat choice_label = choice_for_setup();
 
 	//////以下是录制视频的代码
@@ -362,24 +367,29 @@ int main()
 	location_file << key_choose_thresh;
 	location_file.close();
 
+	
+	//addition(chars_img,chars_label);
+	
 	Mat svm_image_data;
 	Mat svm_label_data = Mat(chars_label);
-	cout << svm_label_data << ";\n" << svm_label_data.size() << endl;
-
 	vector<float> result_hog;
 
-	resize(chars_img[0], img, Size(50, 50));
+	resize(chars_img[0], img, Size(32, 32));
 	hog.compute(img, result_hog);
 	transpose(Mat(result_hog, CV_32FC1), svm_image_data);
 
 	for (int img_cnt = 1; img_cnt<chars_img.size(); img_cnt++)
 	{
 		Mat temp;
-		resize(chars_img[img_cnt], img, Size(50, 50));
+		resize(chars_img[img_cnt], img, Size(32, 32));
 		hog.compute(img, result_hog);
 		transpose(Mat(result_hog, CV_32FC1), temp);
 		vconcat(svm_image_data, temp.reshape(0, 1), svm_image_data);
 	}
+
+
+
+
 
 	//	cout << "img.size():" << svm_image_data.size() << endl;
 	 
@@ -434,6 +444,7 @@ void recall_for_setup(int event, int x, int y, int flags, void* userdata)
 
 void recall_for_draw(int event, int x, int y, int flags, void* userdata)
 {
+	static int weight;
 	//当按下左键时返回起始位置坐标
 	if (event == EVENT_LBUTTONDOWN)
 	{
@@ -445,7 +456,9 @@ void recall_for_draw(int event, int x, int y, int flags, void* userdata)
 		if (drawing_)
 		{
 			Mat img2 = img.clone();
-			rectangle(img2, Point(ix1, iy1), Point(x, y), Scalar(0, 255, 255), 1);
+			weight = (abs(x - ix1) > abs(y - iy1)) ? abs(x - ix1) : abs(y - iy1);
+			rectangle(img2, Point(ix1, iy1), Point(ix1+weight, iy1+weight), Scalar(0, 255, 255), 1);
+			line(img2, Point(ix1 +int( weight/2), iy1), Point(ix1 + int(weight / 2), iy1 + weight),Scalar(0, 255, 255), 1);
 			imshow("img", img2);
 		}
 	}
@@ -453,7 +466,8 @@ void recall_for_draw(int event, int x, int y, int flags, void* userdata)
 	if (event == EVENT_LBUTTONUP)
 	{
 		drawing_ = false;
-		ix2 = x; iy2 = y;
+		
+			ix2 = ix1 + weight; iy2 = iy1 + weight;
 	}
 }
 
@@ -587,3 +601,25 @@ Mat SHOW_once(string s1, int overtime  , Mat A )
 	return temp;
 }
 
+void addition(vector<Mat> &img_,vector<int> &label_)
+{
+	FileStorage file_img("img.xml", FileStorage::READ);
+	FileStorage file_label("label.xml", FileStorage::READ);
+	assert(file_img.isOpened() && file_label.isOpened());
+	int store_num, label_num;
+	file_label["store_sum"] >> store_num;
+	Mat img;
+	String img_name, label_name;
+	for (int cnt = 0; cnt<store_num; cnt++)
+	{
+		img_name = "img_" + to_string(cnt);
+		label_name = "label_" + to_string(cnt);
+		file_img[img_name] >> img;
+		file_label[label_name] >> label_num;
+		img_.push_back(img);
+		label_.push_back(label_num);
+	}
+
+	file_img.release();
+	file_label.release();
+}

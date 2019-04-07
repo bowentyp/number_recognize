@@ -18,5 +18,13 @@
     <ClCompile Include="train_main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Train_Process.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Train_Process.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

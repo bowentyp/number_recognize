@@ -1,20 +1,72 @@
 #include "Train_Process.h"
+#include <iostream>
+#include <numeric>
 
-int main()
+
+using namespace std;
+
+//void MovingAverage(Mat &A, int N);
+//void MovingAverage(vector<float> &V, int N);
+//vector<int> find_wavetop(vector<float> A);
+//vector<int> find_wavetop(Mat A);
+int find_separated_loc(const Mat Img);
+
+
+
+
+
+int main(int argc, char ** argv)
 {
-	Train_Process number_recognizer;
+	FileStorage  save_file("Train_Data.xml", FileStorage::READ);
+	if (!save_file.isOpened())
+	{
+		cout << "error read file" << endl;
+		return -1;
+	}
+	String img_name, label_name; 
+	Mat train_img;
+	int train_img_size,int_label;
+	save_file["store_sum" ]>> train_img_size;
+	for (int cnt = 0; cnt <train_img_size; cnt++)
+	{
+		img_name = "img_" + to_string(cnt);
+		label_name = "label_" + to_string(cnt);
 
-	number_recognizer.AutoTrain();
+		save_file[img_name] >> train_img ;
+		save_file[ label_name ]>> int_label ;
+		imshow("img", train_img);
+		cout << int_label << endl;
+		if (waitKey(0) == 27);
+	}
 
+	//Train_Process number_recognizer;
+	//number_recognizer.Add_Data();
+	//number_recognizer.Test() ;
+	//number_recognizer.AutoTrain();
+	//	//cout << argc << endl << argv[1] << endl;
+	//	if (argc > 1 && argv[1][0] == '1')
+	//		 number_recognizer.AutoTrain();
+	//	else 
+	//		number_recognizer.Test("Svm_for_two.xml");
+
+
+	//Mat img = imread("SYC (26).jpg",0 );
+	//threshold(img, img, 127, 255, THRESH_BINARY_INV);
+	//resize(img, img, Size(64, 64));
+	//imshow("imsf", img);
+	//
+	//int  min_index = find_separated_loc(img);
+
+	//Mat img1 = img.colRange(0, min_index),img2=img.colRange(  min_index, img.cols);
+	//imshow("img1", img1);
+	//imshow("img2", img2);
+	//waitKey(0);
+
+
+
+	system("pause");
 	return 0;
 }
-
-
-
-
-
-
-
 
 //#include	<iostream>
 //#include	<assert.h>

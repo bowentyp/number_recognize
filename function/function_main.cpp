@@ -47,7 +47,7 @@ int main()
 	video.open(0);
 	if (!video.isOpened())
 	{
-		cout << "cant open video" << endl; 
+		cout << "can't open video" << endl; 
 		return -1;
 	}
 	 
@@ -59,11 +59,8 @@ int main()
 	
 	 
 
-	Mat frame, predict, B, G, R, histormB, histormG, histormR;
-	vector<Mat> channel;
-	int hisnum = 255;
-	const float range[] = { 0,255 };
-	const float* histRange = { range };
+	Mat frame;
+
 
 	namedWindow("frame");
 	setMouseCallback("frame", recall_for_ready);
@@ -126,13 +123,18 @@ int main()
 	return 0;
 
 }
+
+
+
+
+
 int HOG_predict(const Mat image)
 {
 	int predict_number=0;
-	Size	WinSize = Size(32, 32),
-		BlockSize = Size(12, 16),
-		BlockStride = Size(4, 8),
-		CellSize = Size(6, 8);
+	Size	WinSize =	Size(32, 32),
+		BlockSize =		Size(12, 16),
+		BlockStride =	Size(4, 8),
+		CellSize =		Size(6, 8);
 	int		Nbins = 9;
 	auto hog = HOGDescriptor(WinSize,BlockSize,BlockStride,CellSize,Nbins);
 	vector<float>  result_hog;
